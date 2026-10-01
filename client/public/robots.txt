@@ -1,0 +1,18 @@
+# Sitemap
+Sitemap: https://beuniktisat.com/sitemap.xml
+
+# Arama motorları için kurallar
+User-agent: *
+Allow: /
+Allow: /card
+Allow: /register
+
+# Admin panelini engelle
+Disallow: /admin
+Disallow: /login
+
+# API'yi engelle
+Disallow: /api/
+
+# Crawl hızı
+Crawl-delay: 1

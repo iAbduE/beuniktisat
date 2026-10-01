@@ -1,0 +1,244 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  EDITOR
+  USER
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  name      String?
+  role      Role     @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Link {
+  id        Int      @id @default(autoincrement())
+  title     String
+  url       String
+  icon      String?
+  iconUrl   String?  // PNG icon URL
+  order     Int      @default(0)
+  isActive  Boolean  @default(true)
+  clicks    Int      @default(0)
+  clickDetails Click[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Click {
+  id        Int      @id @default(autoincrement())
+  linkId    Int
+  link      Link     @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  userAgent String?
+  ip        String?
+  country   String?
+  city      String?
+  createdAt DateTime @default(now())
+}
+
+model Event {
+  id            Int      @id @default(autoincrement())
+  title         String
+  description   String?
+  date          DateTime
+  location      String?
+  imageUrl      String?
+  isActive      Boolean  @default(true)
+  qrCode        String?
+  formCode      String?  @unique @default(uuid()) // Public form için unique code
+  projectionCode String   @unique @default(uuid()) // Admin projeksiyon ekranı için tahmin edilemez anahtar
+  formEnabled   Boolean  @default(false) // Form aktif mi?
+  attendances   Attendance[]
+  certificates  Certificate[]
+  raffles       Raffle[]
+  registrations EventRegistration[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// Etkinlik Kayıt Formu - QR ile doldurulacak
+model EventRegistration {
+  id          Int      @id @default(autoincrement())
+  eventId     Int
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name        String
+  email       String
+  studentId   String?
+  phone       String?
+  department  String?
+  createdAt   DateTime @default(now())
+  
+  @@unique([eventId, email]) // Aynı kişi aynı etkinliğe 2 kez kayıt olamaz
+}
+
+enum FormType {
+  MEMBERSHIP
+  VOLUNTEER
+}
+
+model FormSubmission {
+  id          Int      @id @default(autoincrement())
+  type        FormType
+  name        String
+  email       String
+  phone       String?
+  department  String?
+  message     String?
+  status      String   @default("PENDING")
+  createdAt   DateTime @default(now())
+}
+
+model Sponsor {
+  id          Int      @id @default(autoincrement())
+  name        String
+  imageUrl    String
+  redirectUrl String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Announcement {
+  id          Int      @id @default(autoincrement())
+  title       String
+  content     String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Video {
+  id          Int      @id @default(autoincrement())
+  title       String
+  url         String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model SocialPost {
+  id          Int      @id @default(autoincrement())
+  platform    String   @default("INSTAGRAM")
+  url         String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Member {
+  id           Int      @id @default(autoincrement())
+  name         String
+  email        String   @unique
+  studentId    String?  @unique
+  department   String?
+  qrCode       String   @unique @default(uuid())
+  isActive     Boolean  @default(true)
+  attendances  Attendance[]
+  certificates Certificate[]
+  raffleWins   RaffleWinner[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Attendance {
+  id        Int      @id @default(autoincrement())
+  memberId  Int
+  member    Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  eventId   Int
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  source    String   @default("ADMIN_SCAN") // ADMIN_SCAN veya EVENT_QR
+  createdAt DateTime @default(now())
+  
+  @@unique([memberId, eventId]) // Aynı üye aynı etkinliğe 2 kez katılamaz
+}
+
+model Certificate {
+  id        Int      @id @default(autoincrement())
+  uniqueId  String   @unique @default(uuid())
+  memberId  Int
+  member    Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  eventId   Int
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  source    String   @default("EVENT_QR") // EVENT_QR veya LEGACY
+  issueDate DateTime @default(now())
+
+  @@unique([memberId, eventId]) // Aynı üyeye aynı etkinlik için tek sertifika
+}
+
+model SiteSettings {
+  id              Int      @id @default(autoincrement())
+  backgroundType  String   @default("gradient") // gradient, solid, image
+  backgroundColor String?  @default("#1e3a8a")
+  backgroundGradient String? @default("from-blue-900 to-gray-900")
+  backgroundImage String?
+  profileImage    String?
+  profileTitle    String?  @default("BEÜ İktisat Topluluğu")
+  profileSubtitle String?  @default("Ekonomi, Finans ve Gelecek")
+  updatedAt       DateTime @updatedAt
+}
+
+model QrCode {
+  id          Int      @id @default(autoincrement())
+  name        String
+  targetUrl   String
+  shortCode   String   @unique @default(uuid())
+  logoUrl     String?  // Custom logo for QR center
+  scanCount   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  scans       QrScan[]
+}
+
+model QrScan {
+  id        Int      @id @default(autoincrement())
+  qrCodeId  Int
+  qrCode    QrCode   @relation(fields: [qrCodeId], references: [id], onDelete: Cascade)
+  userAgent String?
+  ip        String?
+  createdAt DateTime @default(now())
+}
+
+// Çekiliş Sistemi
+model Raffle {
+  id           Int      @id @default(autoincrement())
+  eventId      Int
+  event        Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  title        String
+  description  String?
+  prizeCount   Int      @default(1)  // Kaç kişi kazanacak
+  reserveCount Int      @default(0)  // Kaç yedek seçilecek
+  status       String   @default("PENDING") // PENDING, COMPLETED
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  winners      RaffleWinner[]
+}
+
+model RaffleWinner {
+  id        Int      @id @default(autoincrement())
+  raffleId  Int
+  raffle    Raffle   @relation(fields: [raffleId], references: [id], onDelete: Cascade)
+  memberId  Int
+  member    Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  rank      Int      @default(1) // 1. kazanan, 2. kazanan...
+  isReserve Boolean  @default(false) // Yedek mi?
+  createdAt DateTime @default(now())
+}
